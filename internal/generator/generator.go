@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"fmt"
 	"sync/atomic"
 
 	"github.com/cass/rtb-simulator/pkg/openrtb"
@@ -68,8 +67,20 @@ func (g *Generator) ScenarioName() string {
 	return g.scenario.Name()
 }
 
-// nextID generates a unique request ID.
+// nextID generates a unique request ID using direct byte manipulation.
+// Avoids fmt.Sprintf overhead for better performance.
 func (g *Generator) nextID() string {
 	n := atomic.AddUint64(&g.counter, 1)
-	return fmt.Sprintf("req-%08d", n)
+
+	// Format: "req-" + 8 zero-padded digits = 12 bytes
+	var buf [12]byte
+	copy(buf[:4], "req-")
+
+	// Write 8 digits right-to-left with zero padding
+	for i := 11; i >= 4; i-- {
+		buf[i] = '0' + byte(n%10)
+		n /= 10
+	}
+
+	return string(buf[:])
 }

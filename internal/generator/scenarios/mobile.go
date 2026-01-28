@@ -1,25 +1,45 @@
 package scenarios
 
 import (
-	"fmt"
-	"math/rand"
-	"sync"
-	"time"
+	"math/rand/v2"
+	"strconv"
 
 	"github.com/cass/rtb-simulator/pkg/openrtb"
 )
 
-// MobileApp generates bid requests simulating mobile app inventory.
-type MobileApp struct {
-	rng *rand.Rand
-	mu  sync.Mutex
+// Pre-computed version strings (1000 combinations: 0.0.0 to 9.9.9)
+var versionStrings []string
+
+// Connection types as a fixed-size array (zero allocation on access)
+var connectionTypes = [...]int{
+	openrtb.ConnectionWifi,
+	openrtb.ConnectionCell4G,
+	openrtb.ConnectionCell3G,
 }
+
+// Hex characters for user ID generation
+const hexChars = "0123456789abcdef"
+
+func init() {
+	// Pre-compute all version strings at startup
+	versionStrings = make([]string, 0, 1000)
+	for major := 0; major < 10; major++ {
+		for minor := 0; minor < 10; minor++ {
+			for patch := 0; patch < 10; patch++ {
+				versionStrings = append(versionStrings,
+					strconv.Itoa(major)+"."+strconv.Itoa(minor)+"."+strconv.Itoa(patch))
+			}
+		}
+	}
+}
+
+// MobileApp generates bid requests simulating mobile app inventory.
+// Thread-safe: uses math/rand/v2 top-level functions which have per-OS-thread state.
+type MobileApp struct{}
 
 // NewMobileApp creates a new mobile app scenario.
 func NewMobileApp() *MobileApp {
-	return &MobileApp{
-		rng: rand.New(rand.NewSource(time.Now().UnixNano())),
-	}
+	return &MobileApp{}
 }
 
 func (m *MobileApp) Name() string {
@@ -27,9 +47,7 @@ func (m *MobileApp) Name() string {
 }
 
 func (m *MobileApp) Generate(requestID string) *openrtb.BidRequest {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
+	// No mutex needed - rand/v2 top-level functions are thread-safe
 	device := m.randomDevice()
 	app := m.randomApp()
 
@@ -55,27 +73,27 @@ func (m *MobileApp) Generate(requestID string) *openrtb.BidRequest {
 }
 
 func (m *MobileApp) randomBanner() *openrtb.Banner {
-	size := bannerSizes[m.rng.Intn(len(bannerSizes))]
+	size := bannerSizes[rand.IntN(len(bannerSizes))]
 	return &openrtb.Banner{
 		W:   size.W,
 		H:   size.H,
-		Pos: m.rng.Intn(3), // 0=unknown, 1=above fold, 2=below fold
+		Pos: rand.IntN(3), // 0=unknown, 1=above fold, 2=below fold
 	}
 }
 
 func (m *MobileApp) randomApp() *openrtb.App {
-	app := apps[m.rng.Intn(len(apps))]
+	app := apps[rand.IntN(len(apps))]
 	return &openrtb.App{
-		ID:     fmt.Sprintf("app-%06d", m.rng.Intn(1000000)),
+		ID:     m.randomAppID(),
 		Name:   app.Name,
 		Bundle: app.Bundle,
 		Cat:    []string{app.Category},
-		Ver:    fmt.Sprintf("%d.%d.%d", m.rng.Intn(10), m.rng.Intn(10), m.rng.Intn(10)),
+		Ver:    versionStrings[rand.IntN(len(versionStrings))],
 	}
 }
 
 func (m *MobileApp) randomDevice() *openrtb.Device {
-	device := devices[m.rng.Intn(len(devices))]
+	device := devices[rand.IntN(len(devices))]
 	return &openrtb.Device{
 		UA:             device.UA,
 		IP:             m.randomIP(),
@@ -84,54 +102,91 @@ func (m *MobileApp) randomDevice() *openrtb.Device {
 		OS:             device.OS,
 		OSV:            device.OSV,
 		DeviceType:     openrtb.DeviceTypePhone,
-		ConnectionType: m.randomConnectionType(),
+		ConnectionType: connectionTypes[rand.IntN(len(connectionTypes))],
 		Language:       "en",
 		Geo:            m.randomGeo(),
 	}
 }
 
 func (m *MobileApp) randomGeo() *openrtb.Geo {
-	geo := geoLocations[m.rng.Intn(len(geoLocations))]
+	geo := geoLocations[rand.IntN(len(geoLocations))]
 	return &openrtb.Geo{
-		Lat:     geo.Lat + (m.rng.Float64()-0.5)*0.1, // Add small variance
-		Lon:     geo.Lon + (m.rng.Float64()-0.5)*0.1,
+		Lat:     geo.Lat + (rand.Float64()-0.5)*0.1, // Add small variance
+		Lon:     geo.Lon + (rand.Float64()-0.5)*0.1,
 		Country: geo.Country,
 		Region:  geo.Region,
 		City:    geo.City,
 	}
 }
 
+// randomIP generates a realistic-looking IP address using direct byte manipulation.
+// Avoids fmt.Sprintf overhead.
 func (m *MobileApp) randomIP() string {
-	// Generate realistic-looking IPs (avoiding reserved ranges)
-	return fmt.Sprintf("%d.%d.%d.%d",
-		m.rng.Intn(223)+1, // 1-223 for first octet
-		m.rng.Intn(256),
-		m.rng.Intn(256),
-		m.rng.Intn(254)+1, // 1-254 for last octet
-	)
+	var buf [15]byte // Max: "223.255.255.254"
+	n := 0
+
+	// First octet: 1-223
+	n += writeUint8(buf[n:], uint8(rand.IntN(223)+1))
+	buf[n] = '.'
+	n++
+
+	// Second octet: 0-255
+	n += writeUint8(buf[n:], uint8(rand.IntN(256)))
+	buf[n] = '.'
+	n++
+
+	// Third octet: 0-255
+	n += writeUint8(buf[n:], uint8(rand.IntN(256)))
+	buf[n] = '.'
+	n++
+
+	// Fourth octet: 1-254
+	n += writeUint8(buf[n:], uint8(rand.IntN(254)+1))
+
+	return string(buf[:n])
 }
 
+// randomUserID generates a 32-character hex string without fmt.Sprintf.
 func (m *MobileApp) randomUserID() string {
-	const chars = "abcdef0123456789"
-	b := make([]byte, 32)
-	for i := range b {
-		b[i] = chars[m.rng.Intn(len(chars))]
+	var buf [32]byte
+	for i := range buf {
+		buf[i] = hexChars[rand.IntN(16)]
 	}
-	return string(b)
+	return string(buf[:])
+}
+
+// randomAppID generates an app ID like "app-123456" without fmt.Sprintf.
+func (m *MobileApp) randomAppID() string {
+	var buf [10]byte // "app-" + 6 digits
+	copy(buf[:4], "app-")
+	n := rand.IntN(1000000)
+	for i := 9; i >= 4; i-- {
+		buf[i] = '0' + byte(n%10)
+		n /= 10
+	}
+	return string(buf[:])
 }
 
 func (m *MobileApp) randomBidFloor() float64 {
 	// Bid floor between $0.25 and $3.00
-	return 0.25 + m.rng.Float64()*2.75
+	return 0.25 + rand.Float64()*2.75
 }
 
-func (m *MobileApp) randomConnectionType() int {
-	types := []int{
-		openrtb.ConnectionWifi,
-		openrtb.ConnectionCell4G,
-		openrtb.ConnectionCell3G,
+// writeUint8 writes a uint8 to buf and returns the number of bytes written.
+// This is faster than strconv.Itoa for small numbers.
+func writeUint8(buf []byte, n uint8) int {
+	if n >= 100 {
+		buf[0] = '0' + n/100
+		buf[1] = '0' + (n/10)%10
+		buf[2] = '0' + n%10
+		return 3
+	} else if n >= 10 {
+		buf[0] = '0' + n/10
+		buf[1] = '0' + n%10
+		return 2
 	}
-	return types[m.rng.Intn(len(types))]
+	buf[0] = '0' + n
+	return 1
 }
 
 // Data pools for randomization
@@ -141,11 +196,11 @@ type bannerSize struct {
 }
 
 var bannerSizes = []bannerSize{
-	{320, 50},   // Mobile leaderboard
-	{300, 250},  // Medium rectangle
-	{320, 480},  // Mobile interstitial
-	{728, 90},   // Leaderboard (tablet)
-	{300, 50},   // Mobile banner
+	{320, 50},  // Mobile leaderboard
+	{300, 250}, // Medium rectangle
+	{320, 480}, // Mobile interstitial
+	{728, 90},  // Leaderboard (tablet)
+	{300, 50},  // Mobile banner
 }
 
 type appInfo struct {
