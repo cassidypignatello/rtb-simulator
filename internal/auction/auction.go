@@ -39,7 +39,8 @@ func (a *FirstPrice) Run(requestID string, bidFloor float64, results []dispatche
 	outcome := Outcome{RequestID: requestID}
 
 	// Collect all eligible bids (above floor, no errors)
-	var eligibleBids []BidWithDSP
+	// Pre-allocate with estimated capacity to reduce allocations
+	eligibleBids := make([]BidWithDSP, 0, len(results)*2)
 
 	for _, r := range results {
 		if r.Error != nil || r.Response == nil {
