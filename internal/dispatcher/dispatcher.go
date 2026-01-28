@@ -17,6 +17,13 @@ type Result struct {
 	Latency  time.Duration
 }
 
+// indexedResult pairs a result with its index for channel communication.
+// Using a named struct avoids allocation overhead of anonymous structs.
+type indexedResult struct {
+	idx    int
+	result Result
+}
+
 // Dispatcher sends bid requests to multiple DSPs concurrently.
 type Dispatcher struct {
 	client  *httpclient.Client
@@ -85,18 +92,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, req *openrtb.BidRequest) []Re
 	}
 
 	results := make([]Result, len(d.dsps))
-	resultCh := make(chan struct {
-		idx    int
-		result Result
-	}, len(d.dsps))
+	resultCh := make(chan indexedResult, len(d.dsps))
 
 	// Launch all requests
 	for i, dsp := range d.dsps {
 		go func(idx int, dspCfg config.DSPConfig) {
-			resultCh <- struct {
-				idx    int
-				result Result
-			}{idx, d.callDSP(ctx, dspCfg, req)}
+			resultCh <- indexedResult{idx, d.callDSP(ctx, dspCfg, req)}
 		}(i, dsp)
 	}
 
