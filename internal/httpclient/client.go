@@ -57,10 +57,14 @@ func New(opts ...Option) *Client {
 	}
 
 	c.client = &fasthttp.Client{
-		MaxConnsPerHost:     c.maxConnsPerHost,
-		MaxIdleConnDuration: 30 * time.Second,
-		ReadTimeout:         c.timeout,
-		WriteTimeout:        c.timeout,
+		MaxConnsPerHost:               c.maxConnsPerHost,
+		MaxIdleConnDuration:           30 * time.Second,
+		ReadTimeout:                   c.timeout,
+		WriteTimeout:                  c.timeout,
+		MaxConnWaitTimeout:            c.timeout,
+		DisableHeaderNamesNormalizing: true, // Skip header normalization for performance
+		DisablePathNormalizing:        true, // Skip path normalization for performance
+		MaxResponseBodySize:           64 * 1024, // Limit to 64KB for RTB responses
 	}
 
 	return c
