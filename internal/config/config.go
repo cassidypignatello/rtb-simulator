@@ -1,3 +1,5 @@
+// Package config provides YAML-based configuration loading and validation.
+// It defines the structure for DSP endpoints, simulation parameters, and auction settings.
 package config
 
 import (

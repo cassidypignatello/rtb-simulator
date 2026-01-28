@@ -1,3 +1,5 @@
+// Package generator provides bid request generation using pluggable scenarios.
+// It supports different inventory types (mobile app, web, etc.) through the Scenario interface.
 package generator
 
 import (

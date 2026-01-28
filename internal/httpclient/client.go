@@ -1,3 +1,5 @@
+// Package httpclient provides a high-performance HTTP client for DSP communication.
+// It uses fasthttp for connection pooling and sonic for fast JSON serialization.
 package httpclient
 
 import (

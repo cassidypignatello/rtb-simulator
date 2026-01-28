@@ -1,3 +1,5 @@
+// Package auction provides auction implementations for selecting winning bids.
+// It currently supports first-price auctions where the highest bidder pays their bid price.
 package auction
 
 import (

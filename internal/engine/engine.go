@@ -1,3 +1,5 @@
+// Package engine provides the main simulation orchestration for the RTB simulator.
+// It coordinates request generation, DSP dispatch, auction execution, and statistics collection.
 package engine
 
 import (
