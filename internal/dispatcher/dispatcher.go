@@ -1,3 +1,5 @@
+// Package dispatcher provides concurrent fan-out of bid requests to multiple DSP endpoints.
+// It handles parallel HTTP requests with context cancellation and timeout support.
 package dispatcher
 
 import (
@@ -26,9 +28,10 @@ type indexedResult struct {
 
 // Dispatcher sends bid requests to multiple DSPs concurrently.
 type Dispatcher struct {
-	client  *httpclient.Client
-	dsps    []config.DSPConfig
-	timeout time.Duration
+	client          *httpclient.Client
+	dsps            []config.DSPConfig
+	timeout         time.Duration
+	maxConnsPerHost int
 }
 
 // Option configures the dispatcher.
@@ -44,44 +47,30 @@ func WithTimeout(d time.Duration) Option {
 // WithMaxConnsPerHost sets the maximum connections per host.
 func WithMaxConnsPerHost(n int) Option {
 	return func(dp *Dispatcher) {
-		dp.client = httpclient.New(
-			httpclient.WithTimeout(dp.timeout),
-			httpclient.WithMaxConnsPerHost(n),
-		)
+		dp.maxConnsPerHost = n
 	}
 }
 
 // New creates a new dispatcher for the given DSPs.
+// The dsps slice should contain only enabled DSPs (use Config.EnabledDSPs()).
 func New(dsps []config.DSPConfig, opts ...Option) *Dispatcher {
 	d := &Dispatcher{
-		dsps:    filterEnabled(dsps),
-		timeout: 100 * time.Millisecond,
+		dsps:            dsps,
+		timeout:         100 * time.Millisecond,
+		maxConnsPerHost: 100,
 	}
 
 	for _, opt := range opts {
 		opt(d)
 	}
 
-	// Create client if not already created by an option
-	if d.client == nil {
-		d.client = httpclient.New(
-			httpclient.WithTimeout(d.timeout),
-			httpclient.WithMaxConnsPerHost(100),
-		)
-	}
+	// Create client after all options are applied
+	d.client = httpclient.New(
+		httpclient.WithTimeout(d.timeout),
+		httpclient.WithMaxConnsPerHost(d.maxConnsPerHost),
+	)
 
 	return d
-}
-
-// filterEnabled returns only enabled DSPs.
-func filterEnabled(dsps []config.DSPConfig) []config.DSPConfig {
-	var enabled []config.DSPConfig
-	for _, dsp := range dsps {
-		if dsp.Enabled {
-			enabled = append(enabled, dsp)
-		}
-	}
-	return enabled
 }
 
 // Dispatch sends a bid request to all configured DSPs concurrently

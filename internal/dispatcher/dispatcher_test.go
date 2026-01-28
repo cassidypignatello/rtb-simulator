@@ -186,7 +186,9 @@ func TestDispatcher_Dispatch_ContextCancellation(t *testing.T) {
 	}
 }
 
-func TestDispatcher_Dispatch_DisabledDSPs(t *testing.T) {
+func TestDispatcher_Dispatch_OnlyEnabledDSPs(t *testing.T) {
+	// Test that dispatcher processes all DSPs passed to it.
+	// Filtering should be done by the caller using Config.EnabledDSPs().
 	var callCount atomic.Int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -196,22 +198,23 @@ func TestDispatcher_Dispatch_DisabledDSPs(t *testing.T) {
 	}))
 	defer server.Close()
 
-	dsps := []config.DSPConfig{
-		{Name: "enabled", Endpoint: server.URL, Enabled: true},
-		{Name: "disabled", Endpoint: server.URL, Enabled: false},
+	// Only pass enabled DSPs (as caller would do using cfg.EnabledDSPs())
+	enabledDSPs := []config.DSPConfig{
+		{Name: "enabled1", Endpoint: server.URL, Enabled: true},
+		{Name: "enabled2", Endpoint: server.URL, Enabled: true},
 	}
 
-	d := New(dsps, WithTimeout(5*time.Second))
+	d := New(enabledDSPs, WithTimeout(5*time.Second))
 
 	req := &openrtb.BidRequest{ID: "req-1"}
 	results := d.Dispatch(context.Background(), req)
 
-	if len(results) != 1 {
-		t.Errorf("expected 1 result (only enabled DSP), got %d", len(results))
+	if len(results) != 2 {
+		t.Errorf("expected 2 results, got %d", len(results))
 	}
 
-	if callCount.Load() != 1 {
-		t.Errorf("expected 1 DSP call, got %d", callCount.Load())
+	if callCount.Load() != 2 {
+		t.Errorf("expected 2 DSP calls, got %d", callCount.Load())
 	}
 }
 
