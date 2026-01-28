@@ -20,6 +20,12 @@ var connectionTypes = [...]int{
 // Hex characters for user ID generation
 const hexChars = "0123456789abcdef"
 
+// Pre-allocated static slices to avoid allocation per Generate() call
+var (
+	currencyUSD = []string{"USD"}
+	impID1      = "imp-1"
+)
+
 func init() {
 	// Pre-compute all version strings at startup
 	versionStrings = make([]string, 0, 1000)
@@ -55,7 +61,7 @@ func (m *MobileApp) Generate(requestID string) *openrtb.BidRequest {
 		ID: requestID,
 		Imp: []openrtb.Imp{
 			{
-				ID:       "imp-1",
+				ID:       impID1,
 				Banner:   m.randomBanner(),
 				BidFloor: m.randomBidFloor(),
 				Secure:   1,
@@ -68,7 +74,7 @@ func (m *MobileApp) Generate(requestID string) *openrtb.BidRequest {
 		},
 		At:   openrtb.AuctionFirstPrice,
 		Tmax: 100,
-		Cur:  []string{"USD"},
+		Cur:  currencyUSD,
 	}
 }
 
@@ -87,7 +93,7 @@ func (m *MobileApp) randomApp() *openrtb.App {
 		ID:     m.randomAppID(),
 		Name:   app.Name,
 		Bundle: app.Bundle,
-		Cat:    []string{app.Category},
+		Cat:    app.Category, // Pre-allocated slice, no allocation
 		Ver:    versionStrings[rand.IntN(len(versionStrings))],
 	}
 }
@@ -206,20 +212,20 @@ var bannerSizes = []bannerSize{
 type appInfo struct {
 	Name     string
 	Bundle   string
-	Category string
+	Category []string // Pre-allocated slice to avoid allocation per call
 }
 
 var apps = []appInfo{
-	{"Puzzle Quest", "com.games.puzzlequest", "IAB9-30"},
-	{"Daily News", "com.news.dailynews", "IAB12"},
-	{"Weather Pro", "com.weather.weatherpro", "IAB15"},
-	{"Fitness Tracker", "com.health.fitnesstracker", "IAB7"},
-	{"Social Chat", "com.social.chatapp", "IAB14"},
-	{"Music Stream", "com.music.streamapp", "IAB1"},
-	{"Photo Editor", "com.photo.editorpro", "IAB9"},
-	{"Recipe Book", "com.food.recipebook", "IAB8"},
-	{"Travel Guide", "com.travel.guidebook", "IAB20"},
-	{"Finance Manager", "com.finance.manager", "IAB13"},
+	{"Puzzle Quest", "com.games.puzzlequest", []string{"IAB9-30"}},
+	{"Daily News", "com.news.dailynews", []string{"IAB12"}},
+	{"Weather Pro", "com.weather.weatherpro", []string{"IAB15"}},
+	{"Fitness Tracker", "com.health.fitnesstracker", []string{"IAB7"}},
+	{"Social Chat", "com.social.chatapp", []string{"IAB14"}},
+	{"Music Stream", "com.music.streamapp", []string{"IAB1"}},
+	{"Photo Editor", "com.photo.editorpro", []string{"IAB9"}},
+	{"Recipe Book", "com.food.recipebook", []string{"IAB8"}},
+	{"Travel Guide", "com.travel.guidebook", []string{"IAB20"}},
+	{"Finance Manager", "com.finance.manager", []string{"IAB13"}},
 }
 
 type deviceInfo struct {
