@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -54,7 +56,7 @@ func main() {
 		generator.WithTimeout(cfg.Auction.TimeoutMS),
 	)
 
-	disp := dispatcher.New(cfg.DSPs,
+	disp := dispatcher.New(cfg.EnabledDSPs(),
 		dispatcher.WithTimeout(time.Duration(cfg.Auction.TimeoutMS)*time.Millisecond),
 	)
 	defer disp.Close()
@@ -79,7 +81,7 @@ func main() {
 	// Start API server
 	go func() {
 		log.Printf("API server listening on %s", addr)
-		if err := srv.ListenAndServe(); err != nil {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Printf("Server error: %v", err)
 		}
 	}()
