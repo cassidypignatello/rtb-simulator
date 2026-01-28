@@ -1,0 +1,14 @@
+# Binaries
+rtb-simulator
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Test coverage
+coverage.out

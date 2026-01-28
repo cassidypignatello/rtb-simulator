@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+simulation:
+  requests_per_second: 10
+  scenario: "mobile_app"
+
+auction:
+  type: "first_price"
+  timeout_ms: 100
+
+dsps:
+  - name: "local-dsp"
+    endpoint: "http://localhost:9000/bid"
+    enabled: true
+  - name: "test-dsp-2"
+    endpoint: "http://localhost:9001/bid"
+    enabled: false
