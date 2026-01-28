@@ -1,8 +1,11 @@
+// Package api provides the HTTP API server for controlling the RTB simulator.
+// It exposes endpoints for starting/stopping simulation, retrieving stats, and health checks.
 package api
 
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -188,8 +191,10 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 // writeJSON writes a JSON response.
-func (s *Server) writeJSON(w http.ResponseWriter, status int, v interface{}) {
+func (s *Server) writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.Printf("failed to encode JSON response: %v", err)
+	}
 }
