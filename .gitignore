@@ -12,3 +12,6 @@ rtb-simulator
 
 # Test coverage
 coverage.out
+
+# Serena MCP
+.serena/
