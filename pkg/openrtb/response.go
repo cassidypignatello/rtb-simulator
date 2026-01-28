@@ -1,3 +1,5 @@
+// Package openrtb provides OpenRTB 2.5 bid request and response types.
+// It defines the core domain models for real-time bidding operations.
 package openrtb
 
 // BidResponse represents an OpenRTB 2.5 bid response.
@@ -59,7 +61,12 @@ func (r *BidResponse) IsNoBid() bool {
 
 // AllBids returns a flattened slice of all bids across all seats.
 func (r *BidResponse) AllBids() []Bid {
-	var bids []Bid
+	// Pre-calculate total capacity to avoid reallocations
+	totalBids := 0
+	for _, sb := range r.SeatBid {
+		totalBids += len(sb.Bid)
+	}
+	bids := make([]Bid, 0, totalBids)
 	for _, sb := range r.SeatBid {
 		bids = append(bids, sb.Bid...)
 	}
