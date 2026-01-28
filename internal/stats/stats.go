@@ -1,3 +1,5 @@
+// Package stats provides thread-safe metrics collection for auction statistics.
+// It tracks request counts, bid rates, win rates, revenue, and per-DSP performance metrics.
 package stats
 
 import (
@@ -68,14 +70,10 @@ func (c *Collector) RecordAuction(outcome auction.Outcome, results []dispatcher.
 		}
 	}
 
-	// Track bids per DSP from outcome
-	bidsByDSP := make(map[string]int)
+	// Track bids per DSP directly without temporary map allocation
 	for _, b := range outcome.AllBids {
-		bidsByDSP[b.DSPName]++
-	}
-	for dspName, count := range bidsByDSP {
-		dsp := c.getOrCreateDSP(dspName)
-		dsp.bids += uint64(count)
+		dsp := c.getOrCreateDSP(b.DSPName)
+		dsp.bids++
 	}
 
 	// Track wins per DSP
